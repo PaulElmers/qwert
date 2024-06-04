@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Movie Search</title>
+  <style>
+    #loader {
+      display: none;
+    }
+    #more {
+      display: none;
+    }
+    #modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      justify-content: center;
+      align-items: center;
+    }
+    #modal-content {
+      background: white;
+      padding: 20px;
+    }
+  </style>
+</head>
+<body>
+  <form id="search-form">
+    <input type="text" id="title" placeholder="Enter movie title">
+    <select id="type">
+      <option value="movie">Movie</option>
+      <option value="series">Series</option>
+    </select>
+    <button type="submit">Search</button>
+  </form>
+  <div id="loader">Loading...</div>
+  <div id="results"></div>
+  <button id="more">More</button>
+  <div id="modal">
+    <div id="modal-content"></div>
+  </div>
+
+  <script>
+    class MovieService {
+      constructor(apiKey) {
+        this.apiKey = apiKey;
+        this.baseUrl = 'http://www.omdbapi.com/';
+      }
+
+      async search(title, type, page = 1) {
+        const url = `${this.baseUrl}?s=${title}&type=${type}&page=${page}&apikey=${this.apiKey}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        return data;
+      }
+
+      async getMovie(movieId) {
+        const url = `${this.baseUrl}?i=${movieId}&apikey=${this.apiKey}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        return data;
+      }
+    }
+
+    class DOMHandler {
+      constructor() {
+        this.resultsContainer = document.getElementById('results');
+        this.loader = document.getElementById('loader');
+        this.moreButton = document.getElementById('more');
+        this.modal = document.getElementById('modal');
+        this.modalContent = document.getElementById('modal-content');
+      }
+
+      showLoader() {
+        this.loader.style.display = 'block';
+      }
+
+      hideLoader() {
+        this.loader.style.display = 'none';
+      }
+
+      displayMovies(movies) {
+        movies.forEach(movie => {
+          const movieElement = document.createElement('div');
+          movieElement.classList.add('movie');
+          movieElement.innerHTML = `
+            <h3>${movie.Title}</h3>
+            <p>${movie.Year}</p>
+            <button data-id="${movie.imdbID}" class="details-button">Details</button>
+          `;
+          this.resultsContainer.appendChild(movieElement);
+        });
+      }
+
+      clearMovies() {
+        this.resultsContainer.innerHTML = '';
+      }
+
+      showMoreButton() {
+        this.moreButton.style.display = 'block';
+      }
+
+      hideMoreButton() {
+        this.moreButton.style.display = 'none';
+      }
+
+      showModal() {
+        this.modal.style.display = 'flex';
+      }
+
+      hideModal() {
+        this.modal.style.display = 'none';
+      }
+
+      displayMovieDetails(movie) {
+        this.modalContent.innerHTML = `
+          <h2>${movie.Title}</h2>
+          <p>${movie.Year}</p>
+          <p>${movie.Plot}</p>
+          <img src="${movie.Poster}" alt="${movie.Title}">
+        `;
+        this.showModal();
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const apiKey = 'YOUR_API_KEY';
+      const movieService = new MovieService(apiKey);
+      const domHandler = new DOMHandler();
+
+      let currentPage = 1;
+      let currentTitle = '';
+      let currentType = '';
+
+      const searchForm = document.getElementById('search-form');
+
+      searchForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        currentTitle = document.getElementById('title').value;
+        currentType = document.getElementById('type').value;
+        currentPage = 1;
+
+        domHandler.clearMovies();
+        domHandler.showLoader();
+
+        const data = await movieService.search(currentTitle, currentType, currentPage);
+        domHandler.hideLoader();
+        if (data.Search) {
+          domHandler.displayMovies(data.Search);
+          domHandler.showMoreButton();
+        }
+      });
+
+      domHandler.moreButton.addEventListener('click', async () => {
+        currentPage++;
+        domHandler.showLoader();
+        domHandler.hideMoreButton();
+
+        const data = await movieService.search(currentTitle, currentType, currentPage);
+        domHandler.hideLoader();
+        if (data.Search) {
+          domHandler.displayMovies(data.Search);
+          domHandler.showMoreButton();
+        }
+      });
+
+      domHandler.resultsContainer.addEventListener('click', async (event) => {
+        if (event.target.classList.contains('details-button')) {
+          const movieId = event.target.getAttribute('data-id');
+          domHandler.showLoader();
+          const movie = await movieService.getMovie(movieId);
+          domHandler.hideLoader();
+          domHandler.displayMovieDetails(movie);
+        }
+      });
+
+      domHandler.modal.addEventListener('click', (event) => {
+        if (event.target === domHandler.modal) {
+          domHandler.hideModal();
+        }
+      });
+    });
+  </script>
+</body>
+</html>
